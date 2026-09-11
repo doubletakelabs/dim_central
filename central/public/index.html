@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Show Deploy</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#2a3040; --text:#e6e8ee; --dim:#8b93a5;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#4a9eff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; }
+  header { padding:12px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+           position:sticky; top:0; background:var(--bg); z-index:5; }
+  h1 { font-size:15px; margin:0 12px 0 0; }
+  .spacer { flex:1; }
+  .pill { font-size:12px; padding:3px 9px; border-radius:100px; border:1px solid var(--border); color:var(--dim); }
+  button, select { background:var(--panel); color:var(--text); border:1px solid var(--border); padding:6px 12px;
+                   border-radius:6px; font:inherit; font-size:13px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.primary { background:#1f4e8c; border-color:#2b6cb0; }
+  button.danger:hover:not(:disabled) { border-color:var(--bad); color:var(--bad); }
+  button.small { padding:3px 8px; font-size:12px; }
+  main { padding:20px; display:grid; gap:20px; grid-template-columns:1fr; }
+  @media (min-width:1200px) { main { grid-template-columns:3fr 2fr; } .span2 { grid-column:1 / -1; } }
+  section { background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  section h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0;
+               padding:10px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  section h2 .spacer { flex:1; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--dim); font-weight:500; font-size:12px; }
+  tr:last-child td { border-bottom:none; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; }
+  .dot.ok { background:var(--ok); } .dot.warn { background:var(--warn); } .dot.bad { background:var(--bad); } .dot.off { background:#3a4050; }
+  code { font-family:ui-monospace,Menlo,monospace; font-size:12px; }
+  .dim { color:var(--dim); } .bad { color:var(--bad); } .ok { color:var(--ok); } .warn { color:var(--warn); }
+  .sub { font-size:11px; color:var(--dim); }
+  #logs { font-family:ui-monospace,Menlo,monospace; font-size:12px; height:520px; overflow-y:auto; padding:10px 14px; }
+  .log-line { white-space:pre-wrap; word-break:break-word; padding:1px 0; }
+  .log-line .ts { color:#5a6372; } .log-line .room { color:var(--accent); } .log-line .src { color:#9a7bd6; }
+  .log-line.error { color:var(--bad); } .log-line.warn { color:var(--warn); }
+  .empty { padding:28px 16px; text-align:center; color:var(--dim); }
+  .toast { position:fixed; bottom:20px; right:20px; background:#222a38; border:1px solid var(--border); padding:12px 16px;
+           border-radius:8px; max-width:420px; white-space:pre-wrap; z-index:10; box-shadow:0 6px 24px rgba(0,0,0,.4); }
+  .toast.bad { border-color:var(--bad); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Show Deploy</h1>
+  <span class="pill" id="conn">connecting…</span>
+  <div class="spacer"></div>
+  <button id="btn-deploy" class="primary">Deploy to all rooms</button>
+  <button id="btn-sync">Sync content to all</button>
+  <button id="btn-new-all">New release for all…</button>
+</header>
+
+<main>
+  <section>
+    <h2>Rooms</h2>
+    <table>
+      <thead><tr><th>Room</th><th>Running</th><th>Room server</th><th>Content</th><th>Last action</th><th>Deploy</th></tr></thead>
+      <tbody id="rooms"></tbody>
+    </table>
+    <div class="empty" id="rooms-empty">No rooms in central/config.json and no agents connected.</div>
+  </section>
+
+  <section>
+    <h2>Releases</h2>
+    <table>
+      <thead><tr><th>Release</th><th>Room</th><th>Note</th><th>Created</th><th>Size</th><th></th></tr></thead>
+      <tbody id="releases"></tbody>
+    </table>
+    <div class="empty" id="releases-empty">No releases yet. Click “New release” on a room.</div>
+  </section>
+
+  <section class="span2">
+    <h2>Logs
+      <span class="spacer"></span>
+      <select id="log-filter" class="small"><option value="">all rooms</option></select>
+      <button id="btn-clear" class="small">Clear</button>
+    </h2>
+    <div id="logs"></div>
+  </section>
+</main>
+
+<script>
+// --- token: from ?token= once, then remembered ------------------------------
+let TOKEN = new URLSearchParams(location.search).get('token');
+if (TOKEN) { try { localStorage.setItem('token', TOKEN); } catch {} history.replaceState(null, '', location.pathname); }
+else { try { TOKEN = localStorage.getItem('token'); } catch {} }
+if (!TOKEN) TOKEN = prompt('Token (printed when central starts):') || '';
+
+let state = { agents: [], releases: [], rooms: {} };
+const chosen = {}; // roomId -> release id picked in that row
+let logFilter = '';
+
+function api(path, body, method) {
+  return fetch(path, {
+    method: method || (body ? 'POST' : 'GET'),
+    headers: { 'Content-Type': 'application/json', 'x-token': TOKEN },
+    body: body ? JSON.stringify(body) : undefined
+  }).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    return data;
+  });
+}
+
+function toast(msg, bad) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (bad ? ' bad' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), bad ? 12000 : 5000);
+}
+
+function esc(s) { return String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[c])); }
+function ago(ts) { const s = Math.round((Date.now() - ts) / 1000); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s/60)}m` : `${Math.round(s/3600)}h`; }
+function mb(b) { return (b / 1048576).toFixed(1) + ' MB'; }
+
+// --- rendering ----------------------------------------------------------------
+function serverCell(a) {
+  if (!a.connected) return '<span class="dot off"></span>agent offline';
+  const st = a.status;
+  if (!st) return '<span class="dot warn"></span>waiting for status';
+  if (Date.now() - a.lastSeen > 20000) return '<span class="dot warn"></span>stale (no heartbeat)';
+  if (st.busy) {
+    const p = st.progress;
+    const detail = p ? (p.total ? `${p.phase} ${p.done}/${p.total}` : p.phase) : '';
+    return `<span class="dot warn"></span>${esc(st.busy)}… <span class="sub">${esc(detail)}</span>`;
+  }
+  const s = st.server;
+  if (!s || !s.running) {
+    const why = s && s.lastExit ? ` (exit ${s.lastExit.code ?? s.lastExit.signal})` : '';
+    return `<span class="dot bad"></span>not running${esc(why)}`;
+  }
+  const crash = s.recentCrashes ? ` <span class="bad">crashed ${s.recentCrashes}× in last minute</span>` : (s.restarts ? ` <span class="sub">restarted ${s.restarts}×</span>` : '');
+  if (!s.http.ok) return `<span class="dot warn"></span>process up, no HTTP answer${crash}`;
+  return `<span class="dot ok"></span>up ${ago(Date.now() - s.uptimeMs)}${crash}`;
+}
+
+function resultCell(a) {
+  const r = a.lastResult;
+  if (!r) return '<span class="dim">—</span>';
+  const cls = r.ok === false ? 'bad' : 'ok';
+  const text = r.ok === false ? `${r.type} failed: ${r.error || ''}` : `${r.type} ok`;
+  return `<span class="${cls}">${esc(text)}</span><div class="sub">${ago(r.at)} ago</div>`;
+}
+
+function render() {
+  const tbody = document.getElementById('rooms');
+  const ids = [...new Set([...Object.keys(state.rooms), ...state.agents.map((a) => a.roomId)])].sort();
+  document.getElementById('rooms-empty').style.display = ids.length ? 'none' : 'block';
+  const byRoom = Object.fromEntries(state.agents.map((a) => [a.roomId, a]));
+
+  tbody.innerHTML = ids.map((roomId) => {
+    const a = byRoom[roomId] || { roomId, connected: false, status: null, lastResult: null };
+    const st = a.status || {};
+    const rels = state.releases.filter((r) => r.roomId === roomId);
+    const newest = rels[0] && rels[0].id;
+    if (!rels.some((r) => r.id === chosen[roomId])) chosen[roomId] = newest || '';
+    const configured = roomId in state.rooms;
+    const can = a.connected && !st.busy;
+    const rel = st.release || '—';
+    const relCls = st.release && newest && st.release !== newest ? 'warn' : '';
+    const options = rels.map((r) => `<option value="${esc(r.id)}" ${r.id === chosen[roomId] ? 'selected' : ''}>${esc(r.id)}${r.note ? ' — ' + esc(r.note) : ''}</option>`).join('');
+    return `<tr>
+      <td><strong>${esc(roomId)}</strong>
+        <div class="sub">${a.ip ? `<a href="http://${esc(a.ip)}:${esc(a.port)}/" target="_blank" style="color:inherit">${esc(a.ip)}:${esc(a.port)}</a> · ` : ''}${esc(a.platform || '')}</div>
+        ${configured ? '' : '<div class="sub warn">not in central config.json</div>'}
+        ${st.display ? `<div class="sub ${st.display.open ? 'ok' : 'bad'}">kiosk ${st.display.windows.filter((w) => w.open).length}/${st.display.windows.length} open</div>` : ''}</td>
+      <td><code class="${relCls}">${esc(rel)}</code>
+        ${st.experience ? `<div class="sub">${esc(st.experience.name)} ${esc(st.experience.version)}</div>` : ''}
+        ${st.previousRelease ? `<div class="sub">prev ${esc(st.previousRelease)}</div>` : ''}</td>
+      <td>${serverCell(a)}</td>
+      <td>${st.contentVersion != null ? `<span class="dim">v${st.contentVersion}</span>` : (a.connected ? '<span class="warn">not synced</span>' : '<span class="dim">—</span>')}</td>
+      <td>${resultCell(a)}</td>
+      <td style="white-space:nowrap">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <select class="small" onchange="chosen['${esc(roomId)}']=this.value" ${rels.length ? '' : 'disabled'}>${options || '<option value="">no releases</option>'}</select>
+          <button class="small primary" onclick="deployRoom('${esc(roomId)}')" ${can && chosen[roomId] ? '' : 'disabled'}>Deploy</button>
+          <button class="small" onclick="newRelease('${esc(roomId)}')" ${configured ? '' : 'disabled'} title="${esc(state.rooms[roomId] || '')}">New release…</button>
+        </div>
+        <button class="small" onclick="act('rollback', '${esc(roomId)}')" ${can && st.previousRelease ? '' : 'disabled'}>Roll back</button>
+        <button class="small" onclick="act('restart', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Restart</button>
+        <button class="small danger" onclick="act('stop', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Stop</button>
+        <button class="small" onclick="act('syncContent', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Sync content</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('releases-empty').style.display = state.releases.length ? 'none' : 'block';
+  document.getElementById('releases').innerHTML = state.releases.map((r) => {
+    const newest = state.releases.find((x) => x.roomId === r.roomId) === r;
+    return `<tr>
+    <td><code>${esc(r.id)}</code>${newest ? ' <span class="sub ok">newest</span>' : ''}</td>
+    <td>${esc(r.roomId)}</td>
+    <td>${esc(r.note)}${r.experience ? `<div class="sub">${esc(r.experience.name)} ${esc(r.experience.version)}</div>` : ''}</td>
+    <td class="dim">${new Date(r.createdAt).toLocaleString()}</td>
+    <td class="dim">${mb(r.totalBytes)}${r.needsNpmInstall ? ' <span class="warn" title="rooms will run npm install">no node_modules</span>' : ''}</td>
+    <td><button class="small danger" onclick="removeRelease('${esc(r.id)}')">Delete</button></td>
+  </tr>`; }).join('');
+
+  const filter = document.getElementById('log-filter');
+  const f = filter.value;
+  filter.innerHTML = '<option value="">all rooms</option>' + ids.map((id) => `<option value="${esc(id)}">${esc(id)}</option>`).join('');
+  filter.value = f;
+}
+
+function appendLogs(roomId, lines) {
+  if (logFilter && roomId !== logFilter) return;
+  const box = document.getElementById('logs');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  for (const l of lines) {
+    const div = document.createElement('div');
+    div.className = `log-line ${l.level || 'info'}`;
+    div.innerHTML = `<span class="ts">${new Date(l.ts).toLocaleTimeString()}</span> <span class="room">${esc(roomId)}</span> <span class="src">${esc(l.source || '')}</span> ${esc(l.message)}`;
+    box.appendChild(div);
+  }
+  while (box.children.length > 1000) box.removeChild(box.firstChild);
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// --- actions --------------------------------------------------------------------
+async function act(type, roomId, payload) {
+  const body = { ...(payload || {}), rooms: roomId ? [roomId] : undefined };
+  if (type === 'stop' && !confirm(`Stop the room server on ${roomId}?`)) return;
+  if (type === 'rollback' && !roomId && !confirm('Roll back every connected room to its previous release?')) return;
+  try {
+    const r = await api(`/api/${type === 'syncContent' ? 'sync-content' : type}`, body);
+    if (r.failed && r.failed.length) toast(`${type}: failed on ${r.failed.join(', ')}\n` + r.failed.map((k) => `${k}: ${r.results[k].error}`).join('\n'), true);
+    else toast(`${type} ok on ${Object.keys(r.results).length} room(s)`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+window.act = act;
+
+window.deployRoom = (roomId) => act('deploy', roomId, { deploys: { [roomId]: chosen[roomId] } });
+
+window.newRelease = async (roomId) => {
+  const note = prompt(`New release for "${roomId}" from\n${state.rooms[roomId]}\n\nNote (optional):`);
+  if (note === null) return;
+  try { const r = await api('/api/releases', { roomId, note }); toast(`Release ${r.id} created (${mb(r.totalBytes)})`); }
+  catch (err) { toast(err.message, true); }
+};
+
+window.removeRelease = async (id) => {
+  if (!confirm(`Delete release ${id} from central? Rooms that already have it keep running it.`)) return;
+  try { await api(`/api/releases/${id}`, null, 'DELETE'); } catch (err) { toast(err.message, true); }
+};
+
+document.getElementById('btn-deploy').onclick = () => {
+  const deploys = {};
+  for (const a of state.agents) if (a.connected && chosen[a.roomId]) deploys[a.roomId] = chosen[a.roomId];
+  const n = Object.keys(deploys).length;
+  if (!n) return toast('No connected rooms with a release picked', true);
+  const summary = Object.entries(deploys).map(([r, id]) => `${r} ← ${id}`).join('\n');
+  if (confirm(`Deploy to ${n} room(s)?\n\n${summary}`)) act('deploy', null, { deploys });
+};
+document.getElementById('btn-sync').onclick = () => act('syncContent');
+document.getElementById('btn-new-all').onclick = async () => {
+  const note = prompt(`Make a new release for every room in config.json (${Object.keys(state.rooms).join(', ')}).\n\nNote (optional):`);
+  if (note === null) return;
+  const btn = document.getElementById('btn-new-all');
+  btn.disabled = true; btn.textContent = 'Copying…';
+  try {
+    const r = await api('/api/releases/all', { note });
+    const errs = Object.entries(r.errors || {}).map(([k, v]) => `${k}: ${v}`).join('\n');
+    toast(`${r.releases.length} release(s) created` + (errs ? `\nFailed:\n${errs}` : ''), !!errs);
+  } catch (err) { toast(err.message, true); }
+  finally { btn.disabled = false; btn.textContent = 'New release for all…'; }
+};
+document.getElementById('btn-clear').onclick = () => { document.getElementById('logs').innerHTML = ''; };
+document.getElementById('log-filter').onchange = (e) => {
+  logFilter = e.target.value;
+  document.getElementById('logs').innerHTML = '';
+  api(`/api/logs?n=300${logFilter ? '&roomId=' + logFilter : ''}`).then((d) => { for (const l of d.lines) appendLogs(l.roomId, [l]); });
+};
+
+// --- live connection --------------------------------------------------------------
+function connect() {
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/dashboard?token=${encodeURIComponent(TOKEN)}`);
+  const conn = document.getElementById('conn');
+  ws.onopen = () => { conn.textContent = 'live'; };
+  ws.onclose = () => { conn.textContent = 'reconnecting…'; setTimeout(connect, 2000); };
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'state') { state = msg; render(); }
+    else if (msg.type === 'logs') appendLogs(msg.roomId, msg.lines);
+  };
+}
+connect();
+setInterval(render, 5000); // keep "ago" and stale markers fresh
+api('/api/logs?n=200').then((d) => { for (const l of d.lines) appendLogs(l.roomId, [l]); }).catch(() => toast('Bad token. Reload with ?token=... from central\'s startup output.', true));
+</script>
+</body>
+</html>

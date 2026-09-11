@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+central/releases/
+central/logs/
+central/content/*
+!central/content/_common/
+central/content/_common/*
+!central/content/_common/.gitkeep
+agent/config.json
+central/config.json

@@ -1,0 +1,15 @@
+{
+  "name": "show-deploy-agent",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Runs on each room computer: keeps the room server running, deploys releases, syncs content, ships logs",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "install-startup": "node install-startup.js",
+    "remove-startup": "node install-startup.js --remove"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

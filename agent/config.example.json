@@ -1,0 +1,21 @@
+{
+  "roomId": "library",
+  "central": "http://192.168.6.43:4000",
+  "token": "show-token",
+
+  "_optional_settings_below": "delete this line and any you want to override",
+  "baseDir": "",
+  "roomServerPort": 8080,
+  "display": "chrome",
+  "displayPath": null,
+  "chromePath": null,
+  "displays": [
+    { "path": "/wall.html?screen=1", "position": [0, 0] },
+    { "path": "/wall.html?screen=2", "position": [1920, 0] }
+  ],
+  "roomServerEntry": null,
+  "roomServerEnv": {},
+  "healthUrl": null,
+  "healthGraceMs": 30000,
+  "keepReleases": 4
+}

@@ -1,0 +1,7 @@
+{
+  "name": "room-server-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stand-in room server. Replace with the real one.",
+  "scripts": { "start": "node server.js" }
+}
