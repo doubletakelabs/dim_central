@@ -154,6 +154,27 @@ async function deploy(ctx, releaseId) {
   return { ...result, releaseId, previous: pointer.read(config.baseDir).previous, ms: Date.now() - started };
 }
 
+/**
+ * Ask the room server to reload its display pages (POST /refresh, from the
+ * room contract). The piece tells its own displays over its own socket, so
+ * this reaches Chrome, TouchDesigner and headless pages alike.
+ */
+async function refresh(ctx) {
+  const { config, log } = ctx;
+  let res;
+  try {
+    res = await fetch(`http://127.0.0.1:${config.roomServerPort}/refresh`, { method: 'POST', signal: AbortSignal.timeout(5000) });
+  } catch (err) {
+    return { ok: false, error: `room server not answering on port ${config.roomServerPort} (${err.name === 'TimeoutError' ? 'timeout' : err.message})` };
+  }
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body || typeof body.displays !== 'number') {
+    return { ok: false, error: `this piece does not support refresh yet (POST /refresh answered HTTP ${res.status})` };
+  }
+  log('info', `refresh: ${body.displays} display(s) told to reload`);
+  return { ok: true, displays: body.displays };
+}
+
 async function rollback(ctx) {
   const { config, log } = ctx;
   const next = pointer.rollback(config.baseDir);
@@ -187,4 +208,4 @@ async function prune(ctx) {
   }
 }
 
-module.exports = { deploy, rollback, startRelease, prune, releaseDir, readExperience };
+module.exports = { deploy, rollback, refresh, startRelease, prune, releaseDir, readExperience };

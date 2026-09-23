@@ -4,7 +4,7 @@
   "token": "show-token",
 
   "_optional_settings_below": "delete this line and any you want to override",
-  "baseDir": "",
+  "baseDir": "../dim_show",
   "roomServerPort": 8080,
   "display": "chrome",
   "displayPath": null,

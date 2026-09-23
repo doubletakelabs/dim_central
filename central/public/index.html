@@ -54,6 +54,7 @@
   <div class="spacer"></div>
   <button id="btn-deploy" class="primary">Deploy to all rooms</button>
   <button id="btn-sync">Sync content to all</button>
+  <button id="btn-refresh">Refresh all displays</button>
   <button id="btn-new-all">New release for all…</button>
 </header>
 
@@ -146,7 +147,7 @@ function resultCell(a) {
   const r = a.lastResult;
   if (!r) return '<span class="dim">—</span>';
   const cls = r.ok === false ? 'bad' : 'ok';
-  const text = r.ok === false ? `${r.type} failed: ${r.error || ''}` : `${r.type} ok`;
+  const text = r.ok === false ? `${r.type} failed: ${r.error || ''}` : `${r.type} ok${r.displays != null ? ` (${r.displays} display${r.displays === 1 ? '' : 's'})` : ''}`;
   return `<span class="${cls}">${esc(text)}</span><div class="sub">${ago(r.at)} ago</div>`;
 }
 
@@ -188,6 +189,7 @@ function render() {
         <button class="small" onclick="act('restart', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Restart</button>
         <button class="small danger" onclick="act('stop', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Stop</button>
         <button class="small" onclick="act('syncContent', '${esc(roomId)}')" ${can ? '' : 'disabled'}>Sync content</button>
+        <button class="small" onclick="act('refresh', '${esc(roomId)}')" ${can ? '' : 'disabled'} title="Reload this room's display pages">Refresh displays</button>
       </td>
     </tr>`;
   }).join('');
@@ -232,6 +234,7 @@ async function act(type, roomId, payload) {
   try {
     const r = await api(`/api/${type === 'syncContent' ? 'sync-content' : type}`, body);
     if (r.failed && r.failed.length) toast(`${type}: failed on ${r.failed.join(', ')}\n` + r.failed.map((k) => `${k}: ${r.results[k].error}`).join('\n'), true);
+    else if (type === 'refresh') toast('Displays reloaded:\n' + Object.entries(r.results).map(([k, v]) => `${k}: ${v.displays}`).join('\n'));
     else toast(`${type} ok on ${Object.keys(r.results).length} room(s)`);
   } catch (err) {
     toast(err.message, true);
@@ -262,6 +265,7 @@ document.getElementById('btn-deploy').onclick = () => {
   if (confirm(`Deploy to ${n} room(s)?\n\n${summary}`)) act('deploy', null, { deploys });
 };
 document.getElementById('btn-sync').onclick = () => act('syncContent');
+document.getElementById('btn-refresh').onclick = () => act('refresh');
 document.getElementById('btn-new-all').onclick = async () => {
   const note = prompt(`Make a new release for every room in config.json (${Object.keys(state.rooms).join(', ')}).\n\nNote (optional):`);
   if (note === null) return;

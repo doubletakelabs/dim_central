@@ -84,6 +84,7 @@ const ctx = { config, supervisor, display, log, sendProgress };
 const commands = {
   deploy: (msg) => deployLib.deploy(ctx, msg.releaseId),
   rollback: () => deployLib.rollback(ctx),
+  refresh: () => deployLib.refresh(ctx),
   restart: async () => {
     const cur = pointer.read(config.baseDir);
     if (!cur.release) return { ok: false, error: 'No release deployed yet' };

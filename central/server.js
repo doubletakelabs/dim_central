@@ -149,6 +149,7 @@ app.post('/api/deploy', auth, (req, res) => {
 app.post('/api/rollback', auth, (req, res) => fanout(req, res, 'rollback'));
 app.post('/api/restart', auth, (req, res) => fanout(req, res, 'restart'));
 app.post('/api/stop', auth, (req, res) => fanout(req, res, 'stop'));
+app.post('/api/refresh', auth, (req, res) => fanout(req, res, 'refresh'));
 app.post('/api/sync-content', auth, (req, res) => {
   content.rescan(); // pick up anything dropped into content/ since last time
   return fanout(req, res, 'syncContent');

@@ -133,6 +133,12 @@ Media: put files in `central/content/_common/` (all rooms) or
 `central/content/<roomId>/` (one room), then **Sync content to all**. Files
 already on a room are skipped; files removed from central are removed from rooms.
 
+Stuck wall: **Refresh displays** on a room (or **Refresh all displays**) asks
+its room server to reload every connected display page, via `POST /refresh`
+from the room contract. Run state survives. Works whatever shows the page
+(Chrome, TouchDesigner, NDI). A piece built before the contract had this says
+"does not support refresh yet".
+
 ## Real room experiences (02_influence and friends)
 
 A piece built to the handover contract (`experience.json`, zero dependencies,
