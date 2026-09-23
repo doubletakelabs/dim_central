@@ -218,3 +218,11 @@ a full path like `C:\Tools\Tractus.HtmlToNdi.exe` (in JSON: `"C:\\Tools\\Tractus
 as its own string without the shell quotes.
 Closing the agent closes these programs too. On Windows the agent also closes
 any copy left over from before when it starts, so there are never two running.
+
+`runAtStart` runs commands once when the agent starts, without reopening them.
+Write each one as you would type it in a terminal; it runs in the agent folder
+and its output goes to the agent log:
+
+```json
+"runAtStart": ["setup.bat", "powershell -ExecutionPolicy Bypass -File setup.ps1"]
+```

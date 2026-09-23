@@ -9,7 +9,7 @@ const pointer = require('./lib/pointer');
 const deployLib = require('./lib/deploy');
 const { Supervisor, probe, machineStats } = require('./lib/supervisor');
 const { Display } = require('./lib/display');
-const { Programs } = require('./lib/programs');
+const { Programs, runAtStart } = require('./lib/programs');
 const { syncContent } = require('./lib/content-sync');
 const { LogShipper } = require('./lib/logship');
 
@@ -37,7 +37,8 @@ function loadConfig() {
     displayPath: file.displayPath || null,  // overrides entry.display from experience.json
     displays: Array.isArray(file.displays) ? file.displays : null, // one entry per monitor, see lib/display.js
     chromePath: file.chromePath || null,    // only if Chrome is somewhere unusual
-    keepRunning: Array.isArray(file.keepRunning) ? file.keepRunning : [] // extra programs, see lib/programs.js
+    keepRunning: Array.isArray(file.keepRunning) ? file.keepRunning : [], // extra programs, see lib/programs.js
+    runAtStart: Array.isArray(file.runAtStart) ? file.runAtStart : []     // commands run once at boot, same file
   };
   for (const k of ['roomId', 'central', 'token']) {
     if (!config[k]) throw new Error(`config.json is missing "${k}"`);
@@ -220,6 +221,7 @@ async function main() {
   } else {
     log('warn', 'No release deployed yet. Deploy one from the central dashboard.');
   }
+  runAtStart(config.runAtStart, __dirname, log);
   programs.start();
   connect();
 }

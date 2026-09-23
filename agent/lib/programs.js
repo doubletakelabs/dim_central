@@ -17,6 +17,47 @@ const { spawn, spawnSync } = require('child_process');
  *                "--url=http://localhost:8080/index.html"] }
  *   ]
  */
+/** Send a program's output to the agent log, one line at a time. */
+function pipe(stream, level, name, log) {
+  let partial = '';
+  let timer = null;
+  stream.on('data', (chunk) => {
+    partial += chunk.toString();
+    const lines = partial.split('\n');
+    partial = lines.pop();
+    for (const l of lines) if (l.trim()) log(level, l.trimEnd(), name);
+    // A prompt has no newline, so show it after a moment of silence.
+    clearTimeout(timer);
+    timer = setTimeout(flush, 1000);
+  });
+  const flush = () => {
+    clearTimeout(timer);
+    if (partial.trim()) log(level, partial.trimEnd(), name);
+    partial = '';
+  };
+  stream.on('close', flush);
+}
+
+/**
+ * Commands to run once when the agent starts, from "runAtStart" in
+ * config.json. Each is typed as in a terminal and runs in the agent folder:
+ *
+ *   "runAtStart": ["setup.bat", "powershell -ExecutionPolicy Bypass -File setup.ps1"]
+ *
+ * Nothing waits for them and nothing reopens them.
+ */
+function runAtStart(list, agentDir, log) {
+  for (const command of list || []) {
+    const name = 'runAtStart';
+    const child = spawn(command, { cwd: agentDir, shell: true, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
+    log('info', `${name}: ${command}`);
+    pipe(child.stdout, 'info', name, log);
+    pipe(child.stderr, 'error', name, log);
+    child.on('error', (err) => log('error', `${name}: could not run: ${command}: ${err.message}`));
+    child.on('exit', (code) => log(code === 0 ? 'info' : 'warn', `${name}: finished (${code}): ${command}`));
+  }
+}
+
 class Programs {
   constructor({ list, agentDir, log }) {
     this.log = log;
@@ -51,8 +92,8 @@ class Programs {
     if (this.stopped) return;
     const child = spawn(p.cmd, p.args, { cwd: p.cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
     p.child = child;
-    this._pipe(p, child.stdout, 'info');
-    this._pipe(p, child.stderr, 'error');
+    pipe(child.stdout, 'info', p.name, this.log);
+    pipe(child.stderr, 'error', p.name, this.log);
     child.on('spawn', () => this.log('info', `${p.name}: started (pid ${child.pid})`));
     // A missing exe only fires 'error', a normal exit only fires 'exit'.
     child.on('error', (err) => this._retry(p, child, `could not start: ${err.message}`));
@@ -69,24 +110,6 @@ class Programs {
     const delay = Math.min(3000 * p.crashTimes.length, 30000);
     this.log('warn', `${p.name}: ${why}; reopening in ${delay / 1000}s`);
     p.timer = setTimeout(() => this._launch(p), delay);
-  }
-
-  _pipe(p, stream, level) {
-    let partial = '';
-    let timer = null;
-    stream.on('data', (chunk) => {
-      partial += chunk.toString();
-      const lines = partial.split('\n');
-      partial = lines.pop();
-      for (const l of lines) if (l.trim()) this.log(level, l.trimEnd(), p.name);
-      // A prompt has no newline, so show it after a moment of silence.
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (partial.trim()) this.log(level, partial.trimEnd(), p.name);
-        partial = '';
-      }, 1000);
-    });
-    stream.on('close', () => clearTimeout(timer));
   }
 
   close() {
@@ -108,4 +131,4 @@ class Programs {
   }
 }
 
-module.exports = { Programs };
+module.exports = { Programs, runAtStart };
