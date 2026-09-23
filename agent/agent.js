@@ -235,6 +235,7 @@ function shutdown(signal) {
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGHUP', () => shutdown('SIGHUP')); // Windows: agent window closed
 process.on('uncaughtException', (err) => log('error', `Uncaught: ${err.stack || err}`));
 process.on('unhandledRejection', (err) => log('error', `Unhandled: ${err && err.stack ? err.stack : err}`));
 

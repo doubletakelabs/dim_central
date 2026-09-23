@@ -209,10 +209,12 @@ close, e.g. an HTML-to-NDI sender on one machine:
 ```json
 "keepRunning": [
   { "cmd": "Tractus.HtmlToNdi.exe",
-    "args": ["--ndiname=dimcyc", "--w=5000", "--h=1080", "--url=http://localhost:8080/index.html"] }
+    "args": ["--ndiname=dimcyc", "--w=5000", "--h=1080", "--port=9999", "--url=http://localhost:8080/index.html"] }
 ]
 ```
 
 A relative `cmd` is looked for in the agent folder (put the exe there, or give
 a full path like `C:\Tools\Tractus.HtmlToNdi.exe` (in JSON: `"C:\\Tools\\Tractus.HtmlToNdi.exe"`)). Write each argument
 as its own string without the shell quotes.
+Closing the agent closes these programs too. On Windows the agent also closes
+any copy left over from before when it starts, so there are never two running.
