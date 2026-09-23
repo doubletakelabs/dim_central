@@ -13,6 +13,9 @@
     { "path": "/wall.html?screen=1", "position": [0, 0] },
     { "path": "/wall.html?screen=2", "position": [1920, 0] }
   ],
+  "keepRunning": [
+    { "cmd": "Tractus.HtmlToNdi.exe", "args": ["--ndiname=dimcyc", "--w=5000", "--h=1080", "--url=http://localhost:8080/index.html"] }
+  ],
   "roomServerEntry": null,
   "roomServerEnv": {},
   "healthUrl": null,

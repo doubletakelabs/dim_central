@@ -9,6 +9,7 @@ const pointer = require('./lib/pointer');
 const deployLib = require('./lib/deploy');
 const { Supervisor, probe, machineStats } = require('./lib/supervisor');
 const { Display } = require('./lib/display');
+const { Programs } = require('./lib/programs');
 const { syncContent } = require('./lib/content-sync');
 const { LogShipper } = require('./lib/logship');
 
@@ -35,7 +36,8 @@ function loadConfig() {
     display: file.display || null,          // "chrome" opens the display page in kiosk mode
     displayPath: file.displayPath || null,  // overrides entry.display from experience.json
     displays: Array.isArray(file.displays) ? file.displays : null, // one entry per monitor, see lib/display.js
-    chromePath: file.chromePath || null     // only if Chrome is somewhere unusual
+    chromePath: file.chromePath || null,    // only if Chrome is somewhere unusual
+    keepRunning: Array.isArray(file.keepRunning) ? file.keepRunning : [] // extra programs, see lib/programs.js
   };
   for (const k of ['roomId', 'central', 'token']) {
     if (!config[k]) throw new Error(`config.json is missing "${k}"`);
@@ -72,6 +74,7 @@ const log = (level, message, source = 'agent') => shipper.log(level, message, so
 const supervisor = new Supervisor({ log });
 const sendProgress = (p) => { progress = p; heartbeat(); };
 const display = new Display({ config, log });
+const programs = new Programs({ list: config.keepRunning, agentDir: __dirname, log });
 const ctx = { config, supervisor, display, log, sendProgress };
 
 // ---------------------------------------------------------------------------
@@ -139,6 +142,7 @@ async function heartbeat() {
   wsSend({
     experience: cur.release ? deployLib.readExperience(config, cur.release) : null,
     display: display.status(),
+    programs: programs.status(),
     type: 'status',
     agentTime: Date.now(),
     release: cur.release,
@@ -216,12 +220,14 @@ async function main() {
   } else {
     log('warn', 'No release deployed yet. Deploy one from the central dashboard.');
   }
+  programs.start();
   connect();
 }
 
 function shutdown(signal) {
   log('info', `${signal}: agent shutting down, stopping room server too`);
   display.close();
+  programs.close();
   supervisor.stop().finally(() => {
     shipper.close();
     process.exit(0);

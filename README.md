@@ -202,3 +202,17 @@ See `agent/config.example.json`. Useful ones: `roomServerPort` (default
 kiosk mode), `roomServerEntry` (default: from `scripts.start` in the release's
 package.json, else `server.js`), `roomServerEnv` (extra env vars),
 `healthGraceMs` (how long to wait for HTTP after start, default 30s).
+
+`keepRunning` starts extra programs with the agent and reopens them if they
+close, e.g. an HTML-to-NDI sender on one machine:
+
+```json
+"keepRunning": [
+  { "cmd": "Tractus.HtmlToNdi.exe",
+    "args": ["--ndiname=dimcyc", "--w=5000", "--h=1080", "--url=http://localhost:8080/index.html"] }
+]
+```
+
+A relative `cmd` is looked for in the agent folder (put the exe there, or give
+a full path like `C:\Tools\Tractus.HtmlToNdi.exe` (in JSON: `"C:\\Tools\\Tractus.HtmlToNdi.exe"`)). Write each argument
+as its own string without the shell quotes.
