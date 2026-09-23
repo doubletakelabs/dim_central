@@ -143,6 +143,15 @@ function serverCell(a) {
   return `<span class="dot ok"></span>up ${ago(Date.now() - s.uptimeMs)}${crash}`;
 }
 
+function agentCell(a) {
+  if (!a.agentVersion) return '';
+  const cur = state.currentAgent;
+  const fp = a.agentFingerprint;
+  const old = cur && fp !== cur.fingerprint;
+  const title = old ? `central has agent ${cur.version} (${cur.fingerprint}); copy the new agent/ folder to this machine` : 'same agent code as central';
+  return `<div class="sub ${old ? 'warn' : ''}" title="${esc(cur ? title : '')}">agent ${esc(a.agentVersion)}${fp ? ` · ${esc(fp)}` : ''}${old ? ' · update' : ''}</div>`;
+}
+
 function resultCell(a) {
   const r = a.lastResult;
   if (!r) return '<span class="dim">—</span>';
@@ -170,6 +179,7 @@ function render() {
     const options = rels.map((r) => `<option value="${esc(r.id)}" ${r.id === chosen[roomId] ? 'selected' : ''}>${esc(r.id)}${r.note ? ' — ' + esc(r.note) : ''}</option>`).join('');
     return `<tr>
       <td><strong>${esc(roomId)}</strong>
+        ${agentCell(a)}
         <div class="sub">${a.ip ? `<a href="http://${esc(a.ip)}:${esc(a.port)}/" target="_blank" style="color:inherit">${esc(a.ip)}:${esc(a.port)}</a> · ` : ''}${esc(a.platform || '')}</div>
         ${configured ? '' : '<div class="sub warn">not in central config.json</div>'}
         ${st.display ? `<div class="sub ${st.display.open ? 'ok' : 'bad'}">kiosk ${st.display.windows.filter((w) => w.open).length}/${st.display.windows.length} open</div>` : ''}</td>

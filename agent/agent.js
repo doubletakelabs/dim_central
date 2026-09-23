@@ -12,8 +12,12 @@ const { Display } = require('./lib/display');
 const { Programs, runAtStart } = require('./lib/programs');
 const { syncContent } = require('./lib/content-sync');
 const { LogShipper } = require('./lib/logship');
+const { fingerprint } = require('./lib/fingerprint');
 
-const AGENT_VERSION = '2.0.0';
+// Bump when the agent changes. The fingerprint (a hash of this folder's code)
+// catches a machine that missed an update even if nobody bumped this.
+const AGENT_VERSION = '2.1.0';
+const AGENT_FINGERPRINT = fingerprint(__dirname);
 
 // ---------------------------------------------------------------------------
 // Config: config.json next to this file. Only roomId, central, token matter.
@@ -180,6 +184,7 @@ function connect() {
       platform: `${process.platform}-${process.arch}`,
       nodeVersion: process.version,
       agentVersion: AGENT_VERSION,
+      agentFingerprint: AGENT_FINGERPRINT,
       baseDir: config.baseDir,
       ip: lanIp(),
       port: config.roomServerPort
@@ -210,7 +215,7 @@ function connect() {
 // Boot
 // ---------------------------------------------------------------------------
 async function main() {
-  log('info', `Deploy agent ${AGENT_VERSION}: room "${config.roomId}", ${process.platform} node ${process.version}`);
+  log('info', `Deploy agent ${AGENT_VERSION} (${AGENT_FINGERPRINT}): room "${config.roomId}", ${process.platform} node ${process.version}`);
   log('info', `  files in ${config.baseDir}`);
   log('info', `  central  ${config.central}`);
 

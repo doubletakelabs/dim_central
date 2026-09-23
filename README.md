@@ -198,8 +198,13 @@ Agent logs are also on the room machine at `~/show/shared/logs/agent.log`.
 
 ## Updating the agent itself
 
-The agent is small and rarely changes. To update it, copy the new `agent/`
-folder over the old one on each machine and restart the agent (on macOS:
+The agent is small and rarely changes. Each room on the dashboard shows its
+agent version and a fingerprint of its code (`agent 2.1.0 · 3f9a1c22`). It
+turns orange with "update" when that code differs from the `agent/` folder
+next to central. Bump `AGENT_VERSION` in `agent.js` when you change the agent;
+the fingerprint catches it even if you forget. To update, copy the new
+`agent/` folder over the old one on each machine (keep its `config.json`) and
+restart the agent (on macOS:
 `launchctl kickstart -k gui/$(id -u)/com.show.deploy-agent`, or just reboot).
 
 ## Optional agent settings

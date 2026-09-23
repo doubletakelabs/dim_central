@@ -12,6 +12,19 @@ const { ContentStore } = require('./lib/content');
 const { AgentRegistry } = require('./lib/agents');
 const { LogStore } = require('./lib/logs');
 
+// The agent code sitting next to central (../agent) is what room machines
+// should be running. Absent when central was copied on its own; then the
+// dashboard just shows versions without judging them.
+let CURRENT_AGENT = null;
+try {
+  const agentDir = path.join(__dirname, '..', 'agent');
+  const src = fs.readFileSync(path.join(agentDir, 'agent.js'), 'utf8');
+  CURRENT_AGENT = {
+    version: (src.match(/AGENT_VERSION = '([^']+)'/) || [])[1] || '?',
+    fingerprint: require('../agent/lib/fingerprint').fingerprint(agentDir)
+  };
+} catch { /* no agent folder beside central */ }
+
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 const PORT = Number(process.env.PORT || config.port || 4000);
 const TOKEN = process.env.TOKEN || config.token;
@@ -63,7 +76,7 @@ app.get('/api/content/file', (req, res) => {
 // Dashboard API
 // ---------------------------------------------------------------------------
 function state() {
-  return { agents: agents.list(), releases: releases.list(), rooms: ROOMS, contentVersion: content.version };
+  return { agents: agents.list(), releases: releases.list(), rooms: ROOMS, contentVersion: content.version, currentAgent: CURRENT_AGENT };
 }
 
 async function createRelease(roomId, note, sourceDirOverride) {
@@ -246,5 +259,6 @@ server.listen(PORT, '0.0.0.0', () => {
   for (const ip of ips) console.log(`  agents use: http://${ip}:${PORT}   (put this in each agent's config.json as "central")`);
   console.log(`  releases  : ${path.join(__dirname, 'releases')}`);
   console.log(`  content   : ${path.join(__dirname, 'content')}`);
+  if (CURRENT_AGENT) console.log(`  agent     : ${CURRENT_AGENT.version} (${CURRENT_AGENT.fingerprint}) in ../agent is what rooms should run`);
   for (const [id, dir] of Object.entries(ROOMS)) console.log(`  room ${id.padEnd(12)} <- ${dir}${fs.existsSync(dir) ? '' : '   (FOLDER NOT FOUND)'}`);
 });
