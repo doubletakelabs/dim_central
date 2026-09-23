@@ -23,7 +23,7 @@ function loadConfig() {
   const port = file.roomServerPort || 8080; // what room experiences expect; never 5000 (macOS AirPlay)
   const config = {
     roomId: file.roomId,
-    central: String(file.central || '').replace(/\/+$/, ''),
+    central: String(file.central || 'http://192.168.3.1:4000').replace(/\/+$/, ''),
     token: file.token,
     baseDir: path.resolve(file.baseDir || path.join(os.homedir(), 'show')),
     roomServerPort: port,
@@ -40,7 +40,7 @@ function loadConfig() {
     keepRunning: Array.isArray(file.keepRunning) ? file.keepRunning : [], // extra programs, see lib/programs.js
     runAtStart: Array.isArray(file.runAtStart) ? file.runAtStart : []     // commands run once at boot, same file
   };
-  for (const k of ['roomId', 'central', 'token']) {
+  for (const k of ['roomId', 'token']) {
     if (!config[k]) throw new Error(`config.json is missing "${k}"`);
   }
   if (!/^https?:\/\//.test(config.central)) throw new Error('"central" must look like http://192.168.x.x:4000');

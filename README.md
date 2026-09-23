@@ -43,7 +43,7 @@ npm start
 ```
 
 It prints the dashboard URL (with the token) and the address room agents
-should use, like `http://192.168.6.43:4000`. Open the dashboard.
+should use, like `http://192.168.3.1:4000`. Open the dashboard.
 
 `central/config.json` lists every room and the folder its server lives in
 (paths are relative to `central/`):
@@ -79,9 +79,10 @@ npm install
 cp config.example.json config.json
 ```
 
-Edit `config.json` (three fields matter, delete the rest or leave defaults):
+Edit `config.json` (three fields matter, delete the rest or leave defaults;
+`central` defaults to `http://192.168.3.1:4000` if left out):
 ```json
-{ "roomId": "mac-test", "central": "http://192.168.6.43:4000", "token": "show-token" }
+{ "roomId": "mac-test", "central": "http://192.168.3.1:4000", "token": "show-token" }
 ```
 
 ```bash
