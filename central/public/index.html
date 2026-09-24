@@ -160,7 +160,16 @@ function resultCell(a) {
   return `<span class="${cls}">${esc(text)}</span><div class="sub">${ago(r.at)} ago</div>`;
 }
 
+// Every heartbeat redraws the tables, which would throw away a dropdown while
+// someone is choosing from it. Hold redraws until the choice is made.
+let holdRenderUntil = 0;
+document.addEventListener('mousedown', (e) => { if (e.target.closest('select')) holdRenderUntil = Date.now() + 15000; });
+document.addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') { holdRenderUntil = 0; e.target.blur(); render(); } });
+document.addEventListener('focusout', (e) => { if (e.target.tagName === 'SELECT') { holdRenderUntil = 0; setTimeout(render); } });
+const selectInUse = () => Date.now() < holdRenderUntil || document.activeElement?.tagName === 'SELECT';
+
 function render() {
+  if (selectInUse()) return;
   const tbody = document.getElementById('rooms');
   const ids = [...new Set([...Object.keys(state.rooms), ...state.agents.map((a) => a.roomId)])].sort();
   document.getElementById('rooms-empty').style.display = ids.length ? 'none' : 'block';
