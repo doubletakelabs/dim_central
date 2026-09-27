@@ -41,6 +41,7 @@ function loadConfig() {
     displayPath: file.displayPath || null,  // overrides entry.display from experience.json
     displays: Array.isArray(file.displays) ? file.displays : null, // one entry per monitor, see lib/display.js
     chromePath: file.chromePath || null,    // only if Chrome is somewhere unusual
+    keepFront: file.keepFront === true,     // bring the kiosk back if minimized, hidden or behind; see lib/keep-front.js
     keepRunning: Array.isArray(file.keepRunning) ? file.keepRunning : [], // extra programs, see lib/programs.js
     runAtStart: Array.isArray(file.runAtStart) ? file.runAtStart : []     // commands run once at boot, same file
   };

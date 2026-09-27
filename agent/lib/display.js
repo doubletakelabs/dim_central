@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, execSync } = require('child_process');
+const { keepInFront } = require('./keep-front');
 
 /**
  * Opens the room's display page in Chrome kiosk mode and keeps it open.
@@ -57,7 +58,7 @@ class Display {
     this.windows = this.windows.filter((w) => keep.has(key(w)));
     wanted.forEach((w, i) => {
       if (this.windows.some((o) => key(o) === key(w))) return;
-      const win = { url: w.url, position: w.position || null, index: i, child: null, timer: null };
+      const win = { url: w.url, position: w.position || null, index: i, child: null, timer: null, front: null };
       this.windows.push(win);
       this._launch(win);
     });
@@ -77,7 +78,9 @@ class Display {
       `--user-data-dir=${profile}`,
       '--no-first-run', '--noerrdialogs', '--disable-infobars', '--disable-session-crashed-bubble',
       '--disable-features=TranslateUI', '--autoplay-policy=no-user-gesture-required',
-      '--overscroll-history-navigation=0', '--check-for-update-interval=31536000'
+      '--overscroll-history-navigation=0', '--check-for-update-interval=31536000',
+      // A wall on a touchscreen never zooms, whatever its page says (2026-09-27).
+      '--disable-pinch'
     ];
     // Placing the window on the target monitor before kiosk goes fullscreen there.
     if (win.position) args.push(`--window-position=${win.position[0]},${win.position[1]}`);
@@ -85,8 +88,12 @@ class Display {
     win.child = spawn(chrome, args, { stdio: 'ignore', detached: false, windowsHide: false });
     const where = win.position ? ` at ${win.position.join(',')}` : '';
     this.log('info', `display: opened ${win.url}${where} in Chrome kiosk (pid ${win.child.pid})`);
+    // Guests with a keyboard can minimize or hide it; bring it back (lib/keep-front.js).
+    if (this.config.keepFront) win.front = keepInFront(win.child.pid, this.log);
     win.child.on('exit', (code) => {
       win.child = null;
+      win.front?.stop();
+      win.front = null;
       if (!this.windows.includes(win)) return; // closed on purpose
       this.log('warn', `display: Chrome window ${win.index + 1} exited (${code}); reopening in 3s`);
       win.timer = setTimeout(() => this._launch(win), 3000);
@@ -95,6 +102,8 @@ class Display {
 
   _close(win) {
     clearTimeout(win.timer);
+    win.front?.stop();
+    win.front = null;
     if (win.child) { try { win.child.kill(); } catch { /* gone */ } win.child = null; }
   }
 

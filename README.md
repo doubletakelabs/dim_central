@@ -172,6 +172,17 @@ A piece built to the handover contract (`experience.json`, zero dependencies,
   query string. Windows and Linux place windows dependably; macOS needs
   "Displays have separate Spaces" on and is the one to test after a reboot.
 
+- **Keep it in front, for rooms with a keyboard.** Kiosk Chrome has no
+  minimize button, but Win+D, Alt+Tab, Cmd+H and Cmd+Tab still work. Add
+  `"keepFront": true` to that room's agent config and the agent brings the
+  kiosk back within a couple of seconds whenever it is minimized, hidden or
+  behind another program (closing it was already covered: the agent reopens
+  it). Only for guest machines: on one someone is working at, it pulls the
+  wall back over whatever they opened. On a Mac, the first run asks to let
+  node control System Events: allow it, and allow node (or the Terminal that
+  runs the agent) under System Settings → Privacy & Security →
+  Accessibility, or the agent log says it was refused and nothing happens.
+
 The dashboard shows each room's IP and port, so DIM can be pointed at
 `ws://<ip>:<port>` for its broker link.
 
