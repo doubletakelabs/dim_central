@@ -46,7 +46,9 @@ async function downloadOne(url, destPath, entry, attempt = 1) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${entry.path}`);
 
-  await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
+  // A web stream from Node 18's fetch, or a Node stream from lib/compat.js on 16.
+  const body = typeof res.body?.getReader === 'function' ? Readable.fromWeb(res.body) : res.body;
+  await pipeline(body, fs.createWriteStream(tmp));
 
   const actual = await sha256File(tmp);
   if (actual !== entry.sha256) {

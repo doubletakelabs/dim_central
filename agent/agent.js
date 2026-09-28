@@ -1,5 +1,7 @@
 'use strict';
 
+// First: gives Node 16 (the SaaS Mac) the fetch the rest of the agent uses.
+require('./lib/compat');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
