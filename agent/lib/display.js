@@ -80,7 +80,11 @@ class Display {
       '--disable-features=TranslateUI', '--autoplay-policy=no-user-gesture-required',
       '--overscroll-history-navigation=0', '--check-for-update-interval=31536000',
       // A wall on a touchscreen never zooms, whatever its page says (2026-09-27).
-      '--disable-pinch'
+      '--disable-pinch',
+      // Linux: never ask for the desktop keyring. A room machine logs in
+      // automatically, so the keyring is locked and Chromium would put up an
+      // "unlock Default Keyring" prompt nobody is there to answer (2026-09-30).
+      '--password-store=basic'
     ];
     // Placing the window on the target monitor before kiosk goes fullscreen there.
     if (win.position) args.push(`--window-position=${win.position[0]},${win.position[1]}`);
