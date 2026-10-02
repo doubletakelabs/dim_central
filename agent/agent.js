@@ -15,6 +15,7 @@ const { Programs, runAtStart } = require('./lib/programs');
 const { syncContent } = require('./lib/content-sync');
 const { LogShipper } = require('./lib/logship');
 const { fingerprint } = require('./lib/fingerprint');
+const { keepAwake } = require('./lib/keep-awake');
 
 // Bump when the agent changes. The fingerprint (a hash of this folder's code)
 // catches a machine that missed an update even if nobody bumped this.
@@ -232,13 +233,18 @@ async function main() {
   }
   runAtStart(config.runAtStart, __dirname, log);
   programs.start();
+  awake = keepAwake(log);
   connect();
 }
+
+/** The screen kept on, no screensaver (lib/keep-awake.js). */
+let awake = null;
 
 function shutdown(signal) {
   log('info', `${signal}: agent shutting down, stopping room server too`);
   display.close();
   programs.close();
+  awake?.close();
   supervisor.stop().finally(() => {
     shipper.close();
     process.exit(0);
